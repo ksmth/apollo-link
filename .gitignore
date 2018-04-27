@@ -51,8 +51,6 @@ yarn.lock
 package-lock.json
 
 # Compiled
-dist
-lib
 
 .idea
 .vscode
