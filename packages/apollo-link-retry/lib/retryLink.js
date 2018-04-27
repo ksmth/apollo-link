@@ -63,13 +63,17 @@ var RetryableOperation = /** @class */ (function () {
         this.observers = [];
         this.currentSubscription = null;
         this.valueRejected = false;
+        this.waitingOnRetryIf = false;
         this.onNext = function (value) { return __awaiter(_this, void 0, void 0, function () {
-            var shouldRetry, _i, _a, observer;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0: return [4 /*yield*/, this.retryIf(this.retryCount, this.operation, value)];
+            var shouldRetry, _i, _a, observer, _b, _c, observer;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
+                    case 0:
+                        this.waitingOnRetryIf = true;
+                        return [4 /*yield*/, this.retryIf(this.retryCount, this.operation, value)];
                     case 1:
-                        shouldRetry = _b.sent();
+                        shouldRetry = _d.sent();
+                        this.waitingOnRetryIf = true;
                         if (shouldRetry) {
                             this.valueRejected = true;
                             this.retryCount += 1;
@@ -84,6 +88,14 @@ var RetryableOperation = /** @class */ (function () {
                                 continue;
                             observer.next(value);
                         }
+                        if (this.complete) {
+                            for (_b = 0, _c = this.observers; _b < _c.length; _b++) {
+                                observer = _c[_b];
+                                if (!observer)
+                                    continue;
+                                observer.complete();
+                            }
+                        }
                         return [2 /*return*/];
                 }
             });
@@ -92,6 +104,8 @@ var RetryableOperation = /** @class */ (function () {
             if (_this.valueRejected)
                 return;
             _this.complete = true;
+            if (_this.waitingOnRetryIf)
+                return;
             for (var _i = 0, _a = _this.observers; _i < _a.length; _i++) {
                 var observer = _a[_i];
                 if (!observer)
