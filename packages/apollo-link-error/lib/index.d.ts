@@ -11,13 +11,14 @@ export interface ErrorResponse {
   networkError?: Error;
   response?: ExecutionResult;
   operation: Operation;
+  forward: NextLink;
 }
 export declare namespace ErrorLink {
   /**
    * Callback to be triggered when an error occurs within the link stack.
    */
   interface ErrorHandler {
-    (error: ErrorResponse): void;
+    (error: ErrorResponse): Observable<FetchResult> | void;
   }
 }
 export import ErrorHandler = ErrorLink.ErrorHandler;
