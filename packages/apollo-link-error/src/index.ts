@@ -1,3 +1,5 @@
+/* tslint:disable */
+
 import {
   ApolloLink,
   Observable,
@@ -6,10 +8,11 @@ import {
   FetchResult,
 } from 'apollo-link';
 import { GraphQLError, ExecutionResult } from 'graphql';
+import { ServerError, ServerParseError } from 'apollo-link-http-common';
 
 export interface ErrorResponse {
-  graphQLErrors?: GraphQLError[];
-  networkError?: Error;
+  graphQLErrors?: ReadonlyArray<GraphQLError>;
+  networkError?: Error | ServerError | ServerParseError;
   response?: ExecutionResult;
   operation: Operation;
   forward: NextLink;
@@ -27,7 +30,7 @@ export namespace ErrorLink {
 // For backwards compatibility.
 export import ErrorHandler = ErrorLink.ErrorHandler;
 
-export const onError = (errorHandler: ErrorHandler): ApolloLink => {
+export function onError(errorHandler: ErrorHandler): ApolloLink {
   return new ApolloLink((operation, forward) => {
     return new Observable(observer => {
       let sub;
@@ -61,7 +64,10 @@ export const onError = (errorHandler: ErrorHandler): ApolloLink => {
               operation,
               networkError,
               //Network errors can return GraphQL errors on for example a 403
-              graphQLErrors: networkError.result && networkError.result.errors,
+              graphQLErrors:
+                networkError &&
+                networkError.result &&
+                networkError.result.errors,
               forward,
             });
             if (retriedResult) {
@@ -93,7 +99,7 @@ export const onError = (errorHandler: ErrorHandler): ApolloLink => {
       };
     });
   });
-};
+}
 
 export class ErrorLink extends ApolloLink {
   private link: ApolloLink;

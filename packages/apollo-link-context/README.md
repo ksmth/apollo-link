@@ -25,7 +25,7 @@ const asyncAuthLink = setContext(
 );
 ```
 
-<h2 id="caching-async">Caching lookups</h2>
+## Caching lookups
 
 Typically async actions can be expensive and may not need to be called for every request, especially when a lot of request are happening at once. You can setup your own caching and invalidation outside of the link to make it faster but still flexible!
 
@@ -48,7 +48,7 @@ const withToken = setContext(() => {
 });
 
 const resetToken = onError(({ networkError }) => {
-  if (networkError && networkError.statusCode === 401) {
+  if (networkError && networkError.name ==='ServerError' && networkError.statusCode === 401) {
     // remove cached token on 401 from the server
     token = null;
   }

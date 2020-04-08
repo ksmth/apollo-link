@@ -1,3 +1,5 @@
+/* tslint:disable */
+
 import { ApolloLink, Observable, RequestHandler, fromError } from 'apollo-link';
 import {
   serializeFetchParameter,
@@ -33,7 +35,7 @@ export import UriFunction = HttpLink.UriFunction;
 export const createHttpLink = (linkOptions: HttpLink.Options = {}) => {
   let {
     uri = '/graphql',
-    // use default global fetch is nothing passed in
+    // use default global fetch if nothing passed in
     fetch: fetcher,
     includeExtensions,
     useGETForQueries,
@@ -62,11 +64,30 @@ export const createHttpLink = (linkOptions: HttpLink.Options = {}) => {
 
     const context = operation.getContext();
 
+    // `apollographql-client-*` headers are automatically set if a
+    // `clientAwareness` object is found in the context. These headers are
+    // set first, followed by the rest of the headers pulled from
+    // `context.headers`. If desired, `apollographql-client-*` headers set by
+    // the `clientAwareness` object can be overridden by
+    // `apollographql-client-*` headers set in `context.headers`.
+    const clientAwarenessHeaders = {};
+    if (context.clientAwareness) {
+      const { name, version } = context.clientAwareness;
+      if (name) {
+        clientAwarenessHeaders['apollographql-client-name'] = name;
+      }
+      if (version) {
+        clientAwarenessHeaders['apollographql-client-version'] = version;
+      }
+    }
+
+    const contextHeaders = { ...clientAwarenessHeaders, ...context.headers };
+
     const contextConfig = {
       http: context.http,
       options: context.fetchOptions,
       credentials: context.credentials,
-      headers: context.headers,
+      headers: contextHeaders,
     };
 
     //uses fallback, link, and then context to build options
@@ -123,7 +144,7 @@ export const createHttpLink = (linkOptions: HttpLink.Options = {}) => {
           return result;
         })
         .catch(err => {
-          // fetch was cancelled so its already been cleaned up in the unsubscribe
+          // fetch was cancelled so it's already been cleaned up in the unsubscribe
           if (err.name === 'AbortError') return;
           // if it is a network error, BUT there is graphql result info
           // fire the next observer before calling error
@@ -132,8 +153,8 @@ export const createHttpLink = (linkOptions: HttpLink.Options = {}) => {
           // this should only happen if we *also* have data as part of the response key per
           // the spec
           if (err.result && err.result.errors && err.result.data) {
-            // if we dont' call next, the UI can only show networkError because AC didn't
-            // get andy graphqlErrors
+            // if we don't call next, the UI can only show networkError because AC didn't
+            // get any graphqlErrors
             // this is graphql execution result info (i.e errors and possibly data)
             // this is because there is no formal spec how errors should translate to
             // http status codes. So an auth error (401) could have both data

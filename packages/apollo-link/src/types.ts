@@ -1,5 +1,6 @@
 import Observable from 'zen-observable-ts';
-import { ExecutionResult, DocumentNode } from 'graphql';
+import { DocumentNode } from 'graphql/language/ast';
+import { ExecutionResult } from 'graphql/execution/execute';
 export { ExecutionResult, DocumentNode };
 
 export interface GraphQLRequest {
@@ -21,9 +22,10 @@ export interface Operation {
 }
 
 export type FetchResult<
+  TData = { [key: string]: any },
   C = Record<string, any>,
   E = Record<string, any>
-> = ExecutionResult & {
+> = ExecutionResult<TData> & {
   extensions?: E;
   context?: C;
 };
@@ -31,5 +33,5 @@ export type FetchResult<
 export type NextLink = (operation: Operation) => Observable<FetchResult>;
 export type RequestHandler = (
   operation: Operation,
-  forward?: NextLink,
+  forward: NextLink,
 ) => Observable<FetchResult> | null;

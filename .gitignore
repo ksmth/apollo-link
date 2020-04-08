@@ -48,9 +48,10 @@ jspm_packages
 
 # lock files
 yarn.lock
-package-lock.json
 
 # Compiled
 
 .idea
 .vscode
+
+.rpt2_cache
