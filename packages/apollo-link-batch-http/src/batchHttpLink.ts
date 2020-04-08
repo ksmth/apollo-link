@@ -49,19 +49,19 @@ export class BatchHttpLink extends ApolloLink {
   private batchMax: number;
   private batcher: ApolloLink;
 
-  constructor(fetchParams: BatchHttpLink.Options = {}) {
+  constructor(fetchParams?: BatchHttpLink.Options) {
     super();
 
     let {
       uri = '/graphql',
-      // use default global fetch is nothing passed in
+      // use default global fetch if nothing is passed in
       fetch: fetcher,
       includeExtensions,
       batchInterval,
       batchMax,
       batchKey,
       ...requestOptions
-    } = fetchParams;
+    } = fetchParams || ({} as BatchHttpLink.Options);
 
     // dev warnings to ensure fetch is present
     checkFetcher(fetcher);
@@ -88,11 +88,22 @@ export class BatchHttpLink extends ApolloLink {
 
       const context = operations[0].getContext();
 
+      const clientAwarenessHeaders = {};
+      if (context.clientAwareness) {
+        const { name, version } = context.clientAwareness;
+        if (name) {
+          clientAwarenessHeaders['apollographql-client-name'] = name;
+        }
+        if (version) {
+          clientAwarenessHeaders['apollographql-client-version'] = version;
+        }
+      }
+
       const contextConfig = {
         http: context.http,
         options: context.fetchOptions,
         credentials: context.credentials,
-        headers: context.headers,
+        headers: { ...clientAwarenessHeaders, ...context.headers },
       };
 
       //uses fallback, link, and then context to build options
@@ -105,7 +116,7 @@ export class BatchHttpLink extends ApolloLink {
         ),
       );
 
-      const body = optsAndBody.map(({ body }) => body);
+      const loadedBody = optsAndBody.map(({ body }) => body);
       const options = optsAndBody[0].options;
 
       // There's no spec for using GET with batches.
@@ -116,7 +127,7 @@ export class BatchHttpLink extends ApolloLink {
       }
 
       try {
-        (options as any).body = serializeFetchParameter(body, 'Payload');
+        (options as any).body = serializeFetchParameter(loadedBody, 'Payload');
       } catch (parseError) {
         return fromError<FetchResult[]>(parseError);
       }
@@ -129,8 +140,12 @@ export class BatchHttpLink extends ApolloLink {
       }
 
       return new Observable<FetchResult[]>(observer => {
-        // the raw response is attached to the context in the BatchingLink
         fetcher(chosenURI, options)
+          .then(response => {
+            // Make the raw response available in the context.
+            operations.forEach(operation => operation.setContext({ response }));
+            return response;
+          })
           .then(parseAndCheckHttpResponse(operations))
           .then(result => {
             // we have data and can send it to back up the link chain

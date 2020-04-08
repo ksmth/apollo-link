@@ -1,5 +1,6 @@
 import { Operation } from 'apollo-link';
 import { print } from 'graphql/language/printer';
+import { InvariantError } from 'ts-invariant';
 
 /*
  * Http Utilities: shared across links that make http requests
@@ -24,7 +25,7 @@ export type ServerParseError = Error & {
   bodyText: string;
 };
 
-export type ClientParseError = Error & {
+export type ClientParseError = InvariantError & {
   parseError: Error;
 };
 
@@ -70,7 +71,7 @@ export interface HttpOptions {
   /**
    * A `fetch`-compatible API to use when making requests.
    */
-  fetch?: GlobalFetch['fetch'];
+  fetch?: WindowOrWorkerGlobalScope['fetch'];
 
   /**
    * An object representing values to be sent as headers on the request.
@@ -112,6 +113,7 @@ export const fallbackHttpConfig = {
 export const throwServerError = (response, result, message) => {
   const error = new Error(message) as ServerError;
 
+  error.name = 'ServerError';
   error.response = response;
   error.statusCode = response.status;
   error.result = result;
@@ -129,6 +131,7 @@ export const parseAndCheckHttpResponse = operations => (response: Response) => {
           return JSON.parse(bodyText);
         } catch (err) {
           const parseError = err as ServerParseError;
+          parseError.name = 'ServerParseError';
           parseError.response = response;
           parseError.statusCode = response.status;
           parseError.bodyText = bodyText;
@@ -168,11 +171,11 @@ export const parseAndCheckHttpResponse = operations => (response: Response) => {
   );
 };
 
-export const checkFetcher = (fetcher: GlobalFetch['fetch']) => {
+export const checkFetcher = (fetcher: WindowOrWorkerGlobalScope['fetch']) => {
   if (!fetcher && typeof fetch === 'undefined') {
     let library: string = 'unfetch';
     if (typeof window === 'undefined') library = 'node-fetch';
-    throw new Error(`
+    throw new InvariantError(`
 fetch is not found globally and no fetcher passed, to fix pass a fetch for
 your environment like https://www.npmjs.com/package/${library}.
 
@@ -246,7 +249,7 @@ export const serializeFetchParameter = (p, label) => {
   try {
     serialized = JSON.stringify(p);
   } catch (e) {
-    const parseError = new Error(
+    const parseError = new InvariantError(
       `Network request failed. ${label} is not serializable: ${e.message}`,
     ) as ClientParseError;
     parseError.parseError = e;
