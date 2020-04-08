@@ -1,5 +1,7 @@
-export function buildRetryFunction(_a) {
-    var _b = _a === void 0 ? {} : _a, _c = _b.max, max = _c === void 0 ? 5 : _c, retryIf = _b.retryIf;
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+function buildRetryFunction(retryOptions) {
+    var _a = retryOptions || {}, retryIf = _a.retryIf, _b = _a.max, max = _b === void 0 ? 5 : _b;
     return function retryFunction(count, operation, valueOrError) {
         if (count >= max)
             return false;
@@ -8,4 +10,5 @@ export function buildRetryFunction(_a) {
             : valueOrError instanceof Error;
     };
 }
+exports.buildRetryFunction = buildRetryFunction;
 //# sourceMappingURL=retryFunction.js.map

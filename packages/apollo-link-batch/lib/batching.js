@@ -1,31 +1,23 @@
-var __assign = (this && this.__assign) || Object.assign || function(t) {
-    for (var s, i = 1, n = arguments.length; i < n; i++) {
-        s = arguments[i];
-        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-            t[p] = s[p];
-    }
-    return t;
-};
-import { Observable } from 'apollo-link';
-// QueryBatcher doesn't fire requests immediately. Requests that were enqueued within
-// a certain amount of time (configurable through `batchInterval`) will be batched together
-// into one query.
-var OperationBatcher = /** @class */ (function () {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var tslib_1 = require("tslib");
+var apollo_link_1 = require("apollo-link");
+var OperationBatcher = (function () {
     function OperationBatcher(_a) {
-        var batchInterval = _a.batchInterval, _b = _a.batchMax, batchMax = _b === void 0 ? 0 : _b, batchHandler = _a.batchHandler, _c = _a.batchKey, batchKey = _c === void 0 ? function () { return ''; } : _c;
+        var batchInterval = _a.batchInterval, batchMax = _a.batchMax, batchHandler = _a.batchHandler, batchKey = _a.batchKey;
         this.queuedRequests = new Map();
         this.batchInterval = batchInterval;
-        this.batchMax = batchMax;
+        this.batchMax = batchMax || 0;
         this.batchHandler = batchHandler;
-        this.batchKey = batchKey;
+        this.batchKey = batchKey || (function () { return ''; });
     }
     OperationBatcher.prototype.enqueueRequest = function (request) {
         var _this = this;
-        var requestCopy = __assign({}, request);
+        var requestCopy = tslib_1.__assign({}, request);
         var queued = false;
         var key = this.batchKey(request.operation);
         if (!requestCopy.observable) {
-            requestCopy.observable = new Observable(function (observer) {
+            requestCopy.observable = new apollo_link_1.Observable(function (observer) {
                 if (!_this.queuedRequests.has(key)) {
                     _this.queuedRequests.set(key, []);
                 }
@@ -33,7 +25,6 @@ var OperationBatcher = /** @class */ (function () {
                     _this.queuedRequests.get(key).push(requestCopy);
                     queued = true;
                 }
-                //called for each subscriber, so need to save all listeners(next, error, complete)
                 requestCopy.next = requestCopy.next || [];
                 if (observer.next)
                     requestCopy.next.push(observer.next.bind(observer));
@@ -43,11 +34,9 @@ var OperationBatcher = /** @class */ (function () {
                 requestCopy.complete = requestCopy.complete || [];
                 if (observer.complete)
                     requestCopy.complete.push(observer.complete.bind(observer));
-                // The first enqueued request triggers the queue consumption after `batchInterval` milliseconds.
                 if (_this.queuedRequests.get(key).length === 1) {
                     _this.scheduleQueueConsumption(key);
                 }
-                // When amount of requests reaches `batchMax`, trigger the queue consumption without waiting on the `batchInterval`.
                 if (_this.queuedRequests.get(key).length === _this.batchMax) {
                     _this.consumeQueue(key);
                 }
@@ -55,15 +44,13 @@ var OperationBatcher = /** @class */ (function () {
         }
         return requestCopy.observable;
     };
-    // Consumes the queue.
-    // Returns a list of promises (one for each query).
     OperationBatcher.prototype.consumeQueue = function (key) {
-        if (key === void 0) { key = ''; }
-        var queuedRequests = this.queuedRequests.get(key);
+        var requestKey = key || '';
+        var queuedRequests = this.queuedRequests.get(requestKey);
         if (!queuedRequests) {
             return;
         }
-        this.queuedRequests.delete(key);
+        this.queuedRequests.delete(requestKey);
         var requests = queuedRequests.map(function (queuedRequest) { return queuedRequest.operation; });
         var forwards = queuedRequests.map(function (queuedRequest) { return queuedRequest.forward; });
         var observables = [];
@@ -76,12 +63,10 @@ var OperationBatcher = /** @class */ (function () {
             errors.push(batchableRequest.error);
             completes.push(batchableRequest.complete);
         });
-        var batchedObservable = this.batchHandler(requests, forwards) || Observable.of();
+        var batchedObservable = this.batchHandler(requests, forwards) || apollo_link_1.Observable.of();
         var onError = function (error) {
-            //each callback list in batch
             errors.forEach(function (rejecters) {
                 if (rejecters) {
-                    //each subscriber to request
                     rejecters.forEach(function (e) { return e(error); });
                 }
             });
@@ -97,8 +82,6 @@ var OperationBatcher = /** @class */ (function () {
                     return onError(error);
                 }
                 results.forEach(function (result, index) {
-                    // attach the raw response to the context for usage
-                    requests[index].setContext({ response: result });
                     if (nexts[index]) {
                         nexts[index].forEach(function (next) { return next(result); });
                     }
@@ -108,7 +91,6 @@ var OperationBatcher = /** @class */ (function () {
             complete: function () {
                 completes.forEach(function (complete) {
                     if (complete) {
-                        //each subscriber to request
                         complete.forEach(function (c) { return c(); });
                     }
                 });
@@ -118,14 +100,15 @@ var OperationBatcher = /** @class */ (function () {
     };
     OperationBatcher.prototype.scheduleQueueConsumption = function (key) {
         var _this = this;
-        if (key === void 0) { key = ''; }
+        var requestKey = key || '';
         setTimeout(function () {
-            if (_this.queuedRequests.get(key) && _this.queuedRequests.get(key).length) {
-                _this.consumeQueue(key);
+            if (_this.queuedRequests.get(requestKey) &&
+                _this.queuedRequests.get(requestKey).length) {
+                _this.consumeQueue(requestKey);
             }
         }, this.batchInterval);
     };
     return OperationBatcher;
 }());
-export { OperationBatcher };
+exports.OperationBatcher = OperationBatcher;
 //# sourceMappingURL=batching.js.map

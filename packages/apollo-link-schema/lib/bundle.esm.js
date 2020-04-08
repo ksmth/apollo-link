@@ -1,16 +1,8 @@
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-import { ApolloLink, Observable } from 'apollo-link';
-import { execute } from 'graphql';
-var SchemaLink = /** @class */ (function (_super) {
+import { __extends } from 'tslib';
+import { Observable, ApolloLink } from 'apollo-link';
+import { execute } from 'graphql/execution/execute';
+
+var SchemaLink = (function (_super) {
     __extends(SchemaLink, _super);
     function SchemaLink(_a) {
         var schema = _a.schema, rootValue = _a.rootValue, context = _a.context;
@@ -41,6 +33,7 @@ var SchemaLink = /** @class */ (function (_super) {
     };
     return SchemaLink;
 }(ApolloLink));
-export { SchemaLink };
+
 export default SchemaLink;
-//# sourceMappingURL=schemaLink.js.map
+export { SchemaLink };
+//# sourceMappingURL=bundle.esm.js.map

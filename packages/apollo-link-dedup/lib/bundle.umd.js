@@ -1,93 +1,72 @@
 (function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('apollo-link')) :
-    typeof define === 'function' && define.amd ? define(['exports', 'apollo-link'], factory) :
-    (factory((global.apolloLink = global.apolloLink || {}, global.apolloLink.dedup = {}),global.apolloLink.core));
-}(this, (function (exports,apolloLink) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('tslib'), require('apollo-link')) :
+  typeof define === 'function' && define.amd ? define(['exports', 'tslib', 'apollo-link'], factory) :
+  (global = global || self, factory((global.apolloLink = global.apolloLink || {}, global.apolloLink.dedup = {}), global.tslib, global.apolloLink.core));
+}(this, (function (exports, tslib_1, apolloLink) { 'use strict';
 
-    var __extends = (undefined && undefined.__extends) || (function () {
-        var extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-        return function (d, b) {
-            extendStatics(d, b);
-            function __() { this.constructor = d; }
-            d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-        };
-    })();
-    /*
-     * Expects context to contain the forceFetch field if no dedup
-     */
-    var DedupLink = /** @class */ (function (_super) {
-        __extends(DedupLink, _super);
-        function DedupLink() {
-            var _this = _super !== null && _super.apply(this, arguments) || this;
-            _this.inFlightRequestObservables = new Map();
-            _this.subscribers = new Map();
-            return _this;
-        }
-        DedupLink.prototype.request = function (operation, forward) {
-            var _this = this;
-            // sometimes we might not want to deduplicate a request, for example when we want to force fetch it.
-            if (operation.getContext().forceFetch) {
-                return forward(operation);
-            }
-            var key = operation.toKey();
-            var cleanup = function (key) {
-                _this.inFlightRequestObservables.delete(key);
-                var prev = _this.subscribers.get(key);
-                return prev;
-            };
-            if (!this.inFlightRequestObservables.get(key)) {
-                // this is a new request, i.e. we haven't deduplicated it yet
-                // call the next link
-                var singleObserver_1 = forward(operation);
-                var subscription_1;
-                var sharedObserver = new apolloLink.Observable(function (observer) {
-                    // this will still be called by each subscriber regardless of
-                    // deduplication status
-                    var prev = _this.subscribers.get(key);
-                    if (!prev)
-                        prev = { next: [], error: [], complete: [] };
-                    _this.subscribers.set(key, {
-                        next: prev.next.concat([observer.next.bind(observer)]),
-                        error: prev.error.concat([observer.error.bind(observer)]),
-                        complete: prev.complete.concat([observer.complete.bind(observer)]),
-                    });
-                    if (!subscription_1) {
-                        subscription_1 = singleObserver_1.subscribe({
-                            next: function (result) {
-                                var prev = cleanup(key);
-                                _this.subscribers.delete(key);
-                                if (prev) {
-                                    prev.next.forEach(function (next) { return next(result); });
-                                    prev.complete.forEach(function (complete) { return complete(); });
-                                }
-                            },
-                            error: function (error) {
-                                var prev = cleanup(key);
-                                _this.subscribers.delete(key);
-                                if (prev)
-                                    prev.error.forEach(function (err) { return err(error); });
-                            },
-                        });
-                    }
-                    return function () {
-                        if (subscription_1)
-                            subscription_1.unsubscribe();
-                        _this.inFlightRequestObservables.delete(key);
-                    };
-                });
-                this.inFlightRequestObservables.set(key, sharedObserver);
-            }
-            // return shared Observable
-            return this.inFlightRequestObservables.get(key);
-        };
-        return DedupLink;
-    }(apolloLink.ApolloLink));
+  var DedupLink = (function (_super) {
+      tslib_1.__extends(DedupLink, _super);
+      function DedupLink() {
+          var _this = _super !== null && _super.apply(this, arguments) || this;
+          _this.inFlightRequestObservables = new Map();
+          _this.subscribers = new Map();
+          return _this;
+      }
+      DedupLink.prototype.request = function (operation, forward) {
+          var _this = this;
+          if (operation.getContext().forceFetch) {
+              return forward(operation);
+          }
+          var key = operation.toKey();
+          if (!this.inFlightRequestObservables.get(key)) {
+              var singleObserver_1 = forward(operation);
+              var subscription_1;
+              var sharedObserver = new apolloLink.Observable(function (observer) {
+                  if (!_this.subscribers.has(key))
+                      _this.subscribers.set(key, new Set());
+                  _this.subscribers.get(key).add(observer);
+                  if (!subscription_1) {
+                      subscription_1 = singleObserver_1.subscribe({
+                          next: function (result) {
+                              var subscribers = _this.subscribers.get(key);
+                              _this.subscribers.delete(key);
+                              _this.inFlightRequestObservables.delete(key);
+                              if (subscribers) {
+                                  subscribers.forEach(function (obs) { return obs.next(result); });
+                                  subscribers.forEach(function (obs) { return obs.complete(); });
+                              }
+                          },
+                          error: function (error) {
+                              var subscribers = _this.subscribers.get(key);
+                              _this.subscribers.delete(key);
+                              _this.inFlightRequestObservables.delete(key);
+                              if (subscribers) {
+                                  subscribers.forEach(function (obs) { return obs.error(error); });
+                              }
+                          },
+                      });
+                  }
+                  return function () {
+                      if (_this.subscribers.has(key)) {
+                          _this.subscribers.get(key).delete(observer);
+                          if (_this.subscribers.get(key).size === 0) {
+                              _this.inFlightRequestObservables.delete(key);
+                              if (subscription_1)
+                                  subscription_1.unsubscribe();
+                          }
+                      }
+                  };
+              });
+              this.inFlightRequestObservables.set(key, sharedObserver);
+          }
+          return this.inFlightRequestObservables.get(key);
+      };
+      return DedupLink;
+  }(apolloLink.ApolloLink));
 
-    exports.DedupLink = DedupLink;
+  exports.DedupLink = DedupLink;
 
-    Object.defineProperty(exports, '__esModule', { value: true });
+  Object.defineProperty(exports, '__esModule', { value: true });
 
 })));
 //# sourceMappingURL=bundle.umd.js.map
